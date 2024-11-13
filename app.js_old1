@@ -1,0 +1,44 @@
+const express = require('express');
+const sql = require('mssql');
+const dbConfig = require('./dbConfig');
+
+const app = express();
+const port = 3000;
+
+// Middleware para parsear el cuerpo de las solicitudes como JSON
+app.use(express.json());
+
+// Ruta para obtener formas de pago usando el procedimiento almacenado con parámetros
+app.get('/api/forma-pago', async (req, res) => {
+    // Obtener los parámetros de la consulta
+    const id_forma_pago = parseInt(req.query.id_forma_pago) || 0; // Default to 0
+    const desc_forma_pago = req.query.desc_forma_pago || ''; // Default to empty string
+    const plazo_primer_cuota = parseInt(req.query.plazo_primer_cuota) || 0; // Default to 0
+    const plazo_cuotas_siguientes = parseInt(req.query.plazo_cuotas_siguientes) || 0; // Default to 0
+    const cuotas = parseInt(req.query.cuotas) || null; // Default to null
+
+    try {
+        // Conectar a la base de datos
+        let pool = await sql.connect(dbConfig);
+        let result = await pool.request()
+            .input('pid_forma_pago', sql.Int, id_forma_pago)
+            .input('pdesc_forma_pago', sql.VarChar(50), desc_forma_pago)
+            .input('pplazo_primer_cuota', sql.Int, plazo_primer_cuota)
+            .input('pplazo_cuotas_siguientes', sql.Int, plazo_cuotas_siguientes)
+            .input('pcuotas', sql.Int, cuotas) // Puede ser null
+            .execute('SEL_forma_pago'); // Llama al procedimiento almacenado
+
+        // Enviar los datos en formato JSON
+        res.json(result.recordset);
+    } catch (err) {
+        res.status(500).send('Error al conectar a la base de datos: ' + err.message);
+    } finally {
+        sql.close();
+    }
+});
+
+// Iniciar el servidor
+app.listen(port, () => {
+    console.log(`Servidor corriendo en http://localhost:${port}`);
+});
+///http://localhost:3000/api/forma-pago?pid_forma_pago=0&pdesc_forma_pago=&plazo_primer_cuota=0&plazo_cuotas_siguientes=0&cuotas=null
